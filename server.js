@@ -81,16 +81,5 @@ app.io.route('message', {
   }
 });
 
-// app.get('/message/:message', function(req, res) {
-//   log("client routed to 'message'");
-//   debug(req.data);
-//   req.broadcast("HI");
-//   res.send("HI\n");
-// });
-
-// app.io.get('messsages/:room', function(req, res) {
-// }); 
-
-
 app.listen(app.get('port'));
 console.log("Server listening on port "+app.get('port')+"...");
