@@ -15,7 +15,7 @@ var express = require('express.io'),
     _ = require('underscore'),
     colors = require('colors'),
     app = express(),
-    client = redis.createClient(),
+    client = redis.createClient(redisPort, redisHost);
 
 app.http().io();
 app.set('port', 3001);
