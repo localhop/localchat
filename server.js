@@ -62,6 +62,26 @@ function getEventUserListKey(eventId) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// Debug utility functions
+///////////////////////////////////////////////////////////////////////////////
+
+function error(e) { 
+  console.error('error:'.bold.red, e); 
+}
+
+function warning(w) { 
+  console.error('warning:'.bold.yellow, w); 
+}
+
+function debug(d) { 
+  console.log('debug:'.bold.blue, d); 
+}
+
+function log(msg) { 
+  console.log(msg); 
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// Event handlers
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -99,22 +119,6 @@ function handleRedisDrain() {
  */
 function handleRedisIdle() {
   debug("Redis: idle");
-}
-
-function error(e) { 
-  console.error('error:'.bold.red, e); 
-}
-
-function warning(w) { 
-  console.error('warning:'.bold.yellow, w); 
-}
-
-function debug(d) { 
-  console.log('debug:'.bold.blue, d); 
-}
-
-function log(msg) { 
-  console.log(msg); 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
