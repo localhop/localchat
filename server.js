@@ -14,7 +14,7 @@ var express    = require('express'),
     bodyParser = require('body-parser'),
     _          = require('underscore'),
     colors     = require('colors'),
-    chatStreamSubsribers  = {},
+    chatStreamSubscribers  = {},
     client = redis.createClient(redisPort, redisHost);
 
 app.set('port', 3001);
@@ -150,8 +150,8 @@ function handleRedisQueryErr(err, res) {
 app.post("/event/chatroom", function(req, res) {
   var eventId = req.body.eventId;
 
-  chatStreamSubsribers[eventId] = redis.createClient(redisPort, redisHost);
-  var eventStreamSubscriber = chatStreamSubsribers[eventId];
+  chatStreamSubscribers[eventId] = redis.createClient(redisPort, redisHost);
+  var eventStreamSubscriber = chatStreamSubscribers[eventId];
 
   client.rpush(getEventMessageListKey(eventId), 
       getEventChatWelcomeMessage(eventId));
