@@ -14,7 +14,7 @@ var express    = require('express'),
     bodyParser = require('body-parser'),
     _          = require('underscore'),
     colors     = require('colors'),
-    chatRooms  = {},
+    chatStreamSubsribers  = {},
     client = redis.createClient(redisPort, redisHost);
 
 app.set('port', 3001);
@@ -24,8 +24,16 @@ app.use(bodyParser.urlencoded({ extended: false }));
 /// User Interface configuration
 ///////////////////////////////////////////////////////////////////////////////
 
-function ChatWelcomeMessage(eventId) {
-  return "Welcome to the "+eventId+" chat room!";
+function getEventChatWelcomeMessage(eventId) {
+  return "Welcome to the " + eventId + " chat room!";
+}
+
+function getEventChatUserLeftMessage(userId) {
+  return userId + " joined the chat room.";
+}
+
+function getEventChatUserJoinedMessage(userId) {
+  return userId + " left the chat room.";
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,6 +49,22 @@ client.on("drain", handleRedisDrain);
 /// Utility functions
 ///////////////////////////////////////////////////////////////////////////////
 
+function getEventChatStreamKey(eventId) {
+  return "event:"+eventId+":chatStream";
+}
+
+function getEventMessageListKey(eventId) {
+  return "event:"+eventId+":messages"; 
+}
+
+function getEventUserListKey(eventId) {
+  return "event:"+eventId+":users";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Event handlers
+///////////////////////////////////////////////////////////////////////////////
+
 function handleRedisError(err) { error(err); }
 
 /** 
@@ -49,7 +73,7 @@ function handleRedisError(err) { error(err); }
  */
 function handleRedisReady() {
   debug("Redis: client connected to server.");
-  debug("Redis: server ready for commands.");
+  debug("Redis: client & server ready for commands.");
 }
 
 /** 
@@ -118,74 +142,74 @@ function handleRedisQueryErr(err, res) {
 /// Server paths
 ///////////////////////////////////////////////////////////////////////////////
 
-
 /** Called when a new chat room is created for an event */
 app.post("/event/chatroom", function(req, res) {
-  var theEvent = req.body.eventId,
-      theEventClient;
+  var eventId = req.body.eventId;
 
-  chatRooms[theEvent] = redis.createClient(redisPort, redisHost);
-  theEventClient = chatRooms[theEvent];
+  chatStreamSubsribers[eventId] = redis.createClient(redisPort, redisHost);
+  var eventStreamSubscriber = chatStreamSubsribers[eventId];
 
-  client.rpush("event:"+theEvent+":messages", ChatWelcomeMessage(theEvent));
-  client.sadd("event:"+theEvent+":users", SYSTEM_USER_ID);
+  client.rpush(getEventMessageListKey(eventId), 
+      getEventChatWelcomeMessage(eventId));
+  client.sadd(getEventUserListKey(eventId), SYSTEM_USER_ID);
 
-  debug("Chat room created for event "+theEvent);
+  debug("Chat room created for event "+eventId);
 
-  theEventClient.on("subscribe", function(channel, count) {
+  eventStreamSubscriber.on("subscribe", function(channel, count) {
     debug("Chat room: "+channel+" listening for messages...");
   });
 
-  theEventClient.on("message", function(channel, message) {
+  eventStreamSubscriber.on("message", function(channel, message) {
     debug("Chat room: "+channel+" received message");
     client.rpush(channel, message);
   });
 
-  theEventClient.subscribe("event:"+theEvent+":channel");
-  res.send("Chat room for "+theEvent+" created.");
+  eventStreamSubscriber.subscribe(getEventChatStreamKey(eventId));
+  res.send("Chat room for "+eventId+" created.");
 });
 
 
 /** Called when a client posts a message to a chat room */
 app.post("/message", function(req, res) {
-    var theEvent = req.body.eventId,
+    var eventId = req.body.eventId,
         user = req.body.userId,
         message = req.body.message;
-    client.publish("event:"+theEvent+":channel", message);
+    client.publish(getEventChatStreamKey(eventId), message);
     res.send('1');
 });
 
 
 /** Called when a client requests the messages from a chat room */
 app.get("/messages/:eventId/:userId", function(req, res) {
-  var theEvent = req.params.eventId,
+  var eventId = req.params.eventId,
       user = req.params.userId;
   debug("got message request");
-  client.lrange("event:"+theEvent+":messages", "0", "-1", 
+  client.lrange(getEventMessageListKey(eventId), "0", "-1", 
     function (err, reply) {
-      if (err != null)
+      if (err != null) {
         error(err);
+        res.send({text: "", error: err});
+      }
       res.send(reply);
-  }); 
+    }
+  );
 });
 
 
 // /** Called when a user joins the chat room for the event */
 // app.post("/event/chatuser/:eventId/:userId", function(req, res) {
-//   var theEvent = req.body.eventId,
+//   var eventId = req.body.eventId,
 //       theUser = req.body.userId;
-
-//   client.sadd("event:"+theEvent+":users", theUser);
+//   client.sadd(getEventUserListKey(eventId), theUser);
 // });
 
 
 // /** Called when a client leaves the chat room for an event */
 // app.delete("/event/chatuser/:eventId/:userId", function(req, res) {
-//   var theEvent = req.body.eventId,
+//   var eventId = req.body.eventId,
 //       theUser = req.body.userId;
-
-//   client.srem("event:"+theEvent+":users", theUser);
+//   client.srem(getEventUserListKey(eventId), theUser);
 // });
 
 app.listen(app.get('port'));
-console.log("Server listening on port "+app.get('port')+"...");
+console.log("server listening on port " + app.get('port') + "...");
