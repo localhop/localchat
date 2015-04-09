@@ -24,15 +24,15 @@ app.use(bodyParser.urlencoded({ extended: false }));
 /// User Interface configuration
 ///////////////////////////////////////////////////////////////////////////////
 
-function getEventChatWelcomeMessage(eventId) {
+function getChatWelcomeMessage(eventId) {
   return "Welcome to the " + eventId + " chat room!";
 }
 
-function getEventChatUserLeftMessage(userId) {
+function getChatUserLeftMessage(userId) {
   return userId + " joined the chat room.";
 }
 
-function getEventChatUserJoinedMessage(userId) {
+function getChatUserJoinedMessage(userId) {
   return userId + " left the chat room.";
 }
 
@@ -49,15 +49,15 @@ client.on("drain", handleRedisDrain);
 /// Utility functions
 ///////////////////////////////////////////////////////////////////////////////
 
-function getEventChatStreamKey(eventId) {
+function getChatStreamKey(eventId) {
   return "event:"+eventId+":chatStream";
 }
 
-function getEventMessageListKey(eventId) {
+function getChatMessageListKey(eventId) {
   return "event:"+eventId+":messages"; 
 }
 
-function getEventUserListKey(eventId) {
+function getChatUserListKey(eventId) {
   return "event:"+eventId+":users";
 }
 
@@ -79,6 +79,11 @@ function debug(d) {
 
 function log(msg) { 
   console.log(msg); 
+}
+
+function dump_chat_stream(eventId) {
+  var msgList = client.lrange(getChatMessageListKey(eventId), 0, -1);
+  debug(msgList);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,9 +158,8 @@ app.post("/event/chatroom", function(req, res) {
   chatStreamSubscribers[eventId] = redis.createClient(redisPort, redisHost);
   var eventStreamSubscriber = chatStreamSubscribers[eventId];
 
-  client.rpush(getEventMessageListKey(eventId), 
-      getEventChatWelcomeMessage(eventId));
-  client.sadd(getEventUserListKey(eventId), SYSTEM_USER_ID);
+  client.rpush(getChatMessageListKey(eventId), getChatWelcomeMessage(eventId));
+  client.sadd(getChatUserListKey(eventId), SYSTEM_USER_ID);
 
   debug("Chat room created for event "+eventId);
 
@@ -168,7 +172,7 @@ app.post("/event/chatroom", function(req, res) {
     client.rpush(channel, message);
   });
 
-  eventStreamSubscriber.subscribe(getEventChatStreamKey(eventId));
+  eventStreamSubscriber.subscribe(getChatStreamKey(eventId));
   res.send("Chat room for "+eventId+" created.");
 });
 
@@ -178,7 +182,7 @@ app.post("/message", function(req, res) {
     var eventId = req.body.eventId,
         user = req.body.userId,
         message = req.body.message;
-    client.publish(getEventChatStreamKey(eventId), message);
+    client.publish(getChatStreamKey(eventId), message);
     res.send('1');
 });
 
@@ -188,7 +192,7 @@ app.get("/messages/:eventId/:userId", function(req, res) {
   var eventId = req.params.eventId,
       user = req.params.userId;
   debug("got message request");
-  client.lrange(getEventMessageListKey(eventId), "0", "-1", 
+  client.lrange(getChatMessageListKey(eventId), "0", "-1", 
     function (err, reply) {
       if (err != null) {
         error(err);
@@ -204,7 +208,7 @@ app.get("/messages/:eventId/:userId", function(req, res) {
 // app.post("/event/chatuser/:eventId/:userId", function(req, res) {
 //   var eventId = req.body.eventId,
 //       theUser = req.body.userId;
-//   client.sadd(getEventUserListKey(eventId), theUser);
+//   client.sadd(getChatUserListKey(eventId), theUser);
 // });
 
 
@@ -212,7 +216,7 @@ app.get("/messages/:eventId/:userId", function(req, res) {
 // app.delete("/event/chatuser/:eventId/:userId", function(req, res) {
 //   var eventId = req.body.eventId,
 //       theUser = req.body.userId;
-//   client.srem(getEventUserListKey(eventId), theUser);
+//   client.srem(getChatUserListKey(eventId), theUser);
 // });
 
 app.listen(app.get('port'));
