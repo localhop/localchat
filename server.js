@@ -24,14 +24,23 @@ app.use(bodyParser.urlencoded({ extended: false }));
 /// User Interface configuration
 ///////////////////////////////////////////////////////////////////////////////
 
+///
+/// Returns the welcome message that is displayed when a chat room is created
+///
 function getChatWelcomeMessage(eventId) {
   return "Welcome to the " + eventId + " chat room!";
 }
 
+///
+/// Returns the message displayed when a user leaves a chat room
+/// 
 function getChatUserLeftMessage(userId) {
   return userId + " joined the chat room.";
 }
 
+///
+/// Returns the message displayed when a user joins the chat room
+///
 function getChatUserJoinedMessage(userId) {
   return userId + " left the chat room.";
 }
@@ -49,14 +58,23 @@ client.on("drain", handleRedisDrain);
 /// Utility functions
 ///////////////////////////////////////////////////////////////////////////////
 
+///
+/// Redis key for the chat stream
+/// 
 function getChatStreamKey(eventId) {
   return "event:"+eventId+":chatStream";
 }
 
+///
+/// Redis key for the list of messages for an event
+/// 
 function getChatMessageListKey(eventId) {
   return "event:"+eventId+":messages"; 
 }
 
+///
+/// Redis key for the list of users in an event chat
+/// 
 function getChatUserListKey(eventId) {
   return "event:"+eventId+":users";
 }
@@ -81,6 +99,9 @@ function log(msg) {
   console.log(msg); 
 }
 
+///
+/// Dump all of the messages that have been published to a stream
+/// 
 function dump_chat_stream(eventId) {
   var msgList = client.lrange(getChatMessageListKey(eventId), 0, -1);
   debug(msgList);
@@ -92,36 +113,36 @@ function dump_chat_stream(eventId) {
 
 function handleRedisError(err) { error(err); }
 
-/** 
- * Emitted when connection to server established and both are ready to receive 
- * commands.
- */
+//  
+// Emitted when connection to server established and both are ready to receive 
+// commands.
+// 
 function handleRedisReady() {
   debug("Redis: client connected to server.");
   debug("Redis: client & server ready for commands.");
 }
 
-/** 
- * Emitted when an established Redis server connection has closed.
- */
+//  
+// Emitted when an established Redis server connection has closed.
+// 
 function handleRedisEnd() {
   debug("Redis: connection to server lost.");
 }
 
-/** 
- * Emitted when the TCP connection to the Redis server has been buffering, but
- * is now writable. This event can be used to stream commands in to Redis and 
- * adapt to backpressure. Right now, you need to check 
- * client.command_queue.length to decide when to reduce your send rate. Then 
- * you can resume sending when you get drain.
- */
+//  
+// Emitted when the TCP connection to the Redis server has been buffering, but
+// is now writable. This event can be used to stream commands in to Redis and 
+// adapt to backpressure. Right now, you need to check 
+// client.command_queue.length to decide when to reduce your send rate. Then 
+// you can resume sending when you get drain.
+// 
 function handleRedisDrain() {
   debug("Redis: TCP connection writable.");
 }
 
-/** 
- * Emitted when there are no outstanding commands that are awaiting a response.
- */
+//  
+// Emitted when there are no outstanding commands that are awaiting a response.
+// 
 function handleRedisIdle() {
   debug("Redis: idle");
 }
@@ -151,7 +172,9 @@ function handleRedisQueryErr(err, res) {
 /// Server paths
 ///////////////////////////////////////////////////////////////////////////////
 
-/** Called when a new chat room is created for an event */
+//
+// Called when a new chat room is created for an event
+// 
 app.post("/event/chatroom", function(req, res) {
   var eventId = req.body.eventId;
 
@@ -169,7 +192,7 @@ app.post("/event/chatroom", function(req, res) {
 
   eventStreamSubscriber.on("message", function(channel, message) {
     debug("Chat room: "+channel+" received message");
-    client.rpush(channel, message);
+    client.rpush(getChatMessageListKey(eventId), message);
   });
 
   eventStreamSubscriber.subscribe(getChatStreamKey(eventId));
@@ -182,6 +205,7 @@ app.post("/message", function(req, res) {
     var eventId = req.body.eventId,
         user = req.body.userId,
         message = req.body.message;
+    debug("about to publish message to " + eventId);
     client.publish(getChatStreamKey(eventId), message);
     res.send('1');
 });
